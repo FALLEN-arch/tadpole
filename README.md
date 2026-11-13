@@ -37,18 +37,18 @@ cd tadpole
 ./install.sh
 ```
 
-The installer sets up everything in one go: Python, Tkinter, `adb`, `fastboot`, `pipx`, and Tadpole itself
-with its Python dependencies: `tkinterdnd2` (drag and drop), `sv-ttk` (the dark Sun Valley theme) and `Pillow` (screen view scaling). It supports Debian / Ubuntu, Fedora and Arch.
+The installer sets up everything in one go: Python, Tkinter, `adb`, `fastboot`, creates a virtual environment at `~/.local/share/tadpole/venv`, installs Tadpole and its Python dependencies (`tkinterdnd2`, `sv-ttk`, `Pillow`), and adds a `tadpole` launcher to `~/.local/bin`. It supports Debian / Ubuntu, Fedora and Arch.
 
 <details>
 <summary>Manual install</summary>
 
 ```bash
-sudo apt install python3 python3-tk pipx adb fastboot
-pipx install --system-site-packages .
+sudo apt install python3 python3-tk python3-venv adb fastboot
+python3 -m venv ~/.local/share/tadpole/venv
+~/.local/share/tadpole/venv/bin/pip install .
 ```
 
-`pipx` also installs the Python dependencies (`tkinterdnd2`, `sv-ttk`, `Pillow`) automatically. `--system-site-packages` lets pipx's isolated environment see the system Tkinter.
+Then add `~/.local/bin` to your PATH (the installer creates a launcher script there).
 
 </details>
 
@@ -60,13 +60,13 @@ tadpole
 
 If `tadpole` isn't found, open a new terminal or run `export PATH="$HOME/.local/bin:$PATH"`.
 
-You can also run straight from a checkout without installing. Install the Python dependencies first
-(`tkinterdnd2`, `sv-ttk` and `Pillow`):
+You can also run straight from a checkout without installing:
 
 ```bash
-pip install -r requirements.txt
 ./scripts/run.sh
 ```
+
+This creates a local `.venv` in the project directory, installs dependencies, and runs Tadpole.
 
 ## Development
 
@@ -74,9 +74,8 @@ pip install -r requirements.txt
 # Run tests
 python3 -m pytest tests/ -v
 
-# Run from source (requires dependencies)
-pip install -r requirements.txt
-python3 -m tadpole
+# Run from source (creates .venv automatically)
+./scripts/run.sh
 ```
 
 ## Configuration
@@ -87,9 +86,9 @@ old name is still picked up automatically.
 ## Project Layout
 
 ```
-install.sh            one-step installer
+install.sh            one-step installer (system deps + venv)
 requirements.txt      Python dependencies (tkinterdnd2, sv-ttk, Pillow)
-scripts/run.sh        run from a checkout
+scripts/run.sh        run from a checkout (creates local .venv)
 tests/                unit tests
 src/tadpole/
   __init__.py         package exports (models, services, errors)
