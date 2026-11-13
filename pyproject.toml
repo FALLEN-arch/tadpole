@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tadpole"
+version = "1.0.0"
+description = "Native desktop GUI for adb and fastboot (Tkinter, dark Sun Valley theme, drag and drop)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["tkinterdnd2>=0.3.0", "sv-ttk>=2.6", "Pillow>=9.1"]
+license = { text = "MIT" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+
+
+[project.gui-scripts]
+tadpole = "tadpole.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
