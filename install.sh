@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Tadpole installer: system packages + Python venv + Tadpole
+# Tadpole installer: system packages + Python venv + Tadpole + desktop integration
 set -euo pipefail
 cd "$(dirname "$0")"
 
 VENV_DIR="$HOME/.local/share/tadpole/venv"
 BIN_DIR="$HOME/.local/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+METAINFO_DIR="$HOME/.local/share/metainfo"
+MAN_DIR="$HOME/.local/share/man/man1"
 
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=""
@@ -39,7 +42,6 @@ echo "==> Installing Tadpole and dependencies"
 
 echo "==> Creating launcher script"
 mkdir -p "$BIN_DIR"
-# Remove any existing file/symlink first
 rm -f "$BIN_DIR/tadpole"
 cat > "$BIN_DIR/tadpole" << 'LAUNCHER'
 #!/usr/bin/env bash
@@ -47,18 +49,25 @@ exec "$HOME/.local/share/tadpole/venv/bin/python" -m tadpole "$@"
 LAUNCHER
 chmod +x "$BIN_DIR/tadpole"
 
-echo "==> Creating desktop entry"
-mkdir -p "$DESKTOP_DIR"
-cat > "$DESKTOP_DIR/tadpole.desktop" << DESKTOP
-[Desktop Entry]
-Name=Tadpole
-Comment=Native GUI for adb and fastboot
-Exec=$BIN_DIR/tadpole
-Icon=phone
-Terminal=false
-Type=Application
-Categories=Development;System;
-DESKTOP
+echo "==> Installing desktop integration files"
+mkdir -p "$DESKTOP_DIR" "$ICON_DIR" "$METAINFO_DIR" "$MAN_DIR"
+
+# Desktop file
+cp data/applications/com.fallen-arch.Tadpole.desktop "$DESKTOP_DIR/"
+
+# Icon
+cp data/icons/hicolor/scalable/apps/com.fallen-arch.Tadpole.svg "$ICON_DIR/"
+
+# AppStream metainfo
+cp data/metainfo/com.fallen-arch.Tadpole.metainfo.xml "$METAINFO_DIR/"
+
+# Man page
+cp man/tadpole.1 "$MAN_DIR/"
+
+# Update caches
+command -v update-desktop-database >/dev/null && update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -q "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+command -v mandb >/dev/null && mandb -q "$MAN_DIR" 2>/dev/null || true
 
 echo
 echo "Done. Run:"
@@ -66,3 +75,5 @@ echo "    tadpole"
 echo
 echo "If 'tadpole' isn't found, open a new terminal or run:"
 echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+echo
+echo "The app will also appear in your application menu under Development/System."

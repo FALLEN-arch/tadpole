@@ -16,9 +16,21 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 
-
 [project.gui-scripts]
-tadpole = "tadpole.gui:main"
+tadpole = "tadpole.ui.main_window:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"tadpole" = [
+    "data/icons/hicolor/scalable/apps/*.svg",
+    "data/applications/*.desktop",
+    "data/metainfo/*.xml",
+]
+
+[tool.setuptools.data-files]
+"share/icons/hicolor/scalable/apps" = ["data/icons/hicolor/scalable/apps/com.fallen-arch.Tadpole.svg"]
+"share/applications" = ["data/applications/com.fallen-arch.Tadpole.desktop"]
+"share/metainfo" = ["data/metainfo/com.fallen-arch.Tadpole.metainfo.xml"]
+"share/man/man1" = ["man/tadpole.1"]

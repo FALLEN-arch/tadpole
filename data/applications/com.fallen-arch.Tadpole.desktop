@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Tadpole
+Comment=Native GUI for adb and fastboot
+GenericName=Android Device Manager
+Exec=tadpole
+Icon=com.fallen-arch.Tadpole
+Terminal=false
+Type=Application
+Categories=Development;System;Utility;
+Keywords=android;adb;fastboot;flash;debug;mobile;phone;device;
+MimeType=application/vnd.android.package-archive;application/octet-stream;
+StartupNotify=true
+StartupWMClass=Tadpole
+DBusActivatable=false
