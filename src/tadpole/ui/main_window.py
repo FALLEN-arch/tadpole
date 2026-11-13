@@ -264,20 +264,6 @@ class MainWindow(BaseTk):
         def pack_forget(self):
             super().pack_forget()
 
-    # Store references to flash tab for cross-tab navigation
-    @property
-    def flash_tab(self):
-        """Get the FastbootFlashTab instance."""
-        nav = self.nb["fb"]
-        if hasattr(nav, "_tabs") and len(nav._tabs) > 1:
-            frame = nav._tabs[1][0]
-            if hasattr(frame, "on_show"):
-                # Find the tab instance
-                for child in frame.winfo_children():
-                    if hasattr(child, "_flash"):
-                        return child
-        return None
-
     # ============================================================
     # Mode/Device Management
     # ============================================================
@@ -392,11 +378,6 @@ class MainWindow(BaseTk):
         self._poll_devices()
         self.after(4000, self._poll_loop)
 
-    def _poll_devices_now(self) -> None:
-        """Manual refresh button."""
-        self._last_device_sig = None
-        self._poll_devices()
-
     # ============================================================
     # WiFi Actions
     # ============================================================
@@ -503,13 +484,22 @@ class MainWindow(BaseTk):
                 widget.dnd_bind("<<Drop>>", self._on_drop)
             except Exception:
                 pass
-            for child in widget.winfo_children():
-                register(child)
+            # Safely iterate children
+            try:
+                for child in widget.winfo_children():
+                    # Skip internal tkinter widgets that might cause issues
+                    register(child)
+            except Exception:
+                pass
 
         register(self)
 
     def _on_drop(self, event) -> None:
-        files = list(self.tk.splitlist(event.data))
+        try:
+            files = list(self.tk.splitlist(event.data))
+        except Exception:
+            return
+
         if self.mode.get() == "adb":
             apks = [p for p in files if p.lower().endswith(".apk")]
             if apks:
