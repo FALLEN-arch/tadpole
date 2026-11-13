@@ -39,6 +39,8 @@ echo "==> Installing Tadpole and dependencies"
 
 echo "==> Creating launcher script"
 mkdir -p "$BIN_DIR"
+# Remove any existing file/symlink first
+rm -f "$BIN_DIR/tadpole"
 cat > "$BIN_DIR/tadpole" << 'LAUNCHER'
 #!/usr/bin/env bash
 exec "$HOME/.local/share/tadpole/venv/bin/python" -m tadpole "$@"
