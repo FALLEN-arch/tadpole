@@ -163,6 +163,7 @@ class App(BaseTk):
         self.title("Tadpole")
         self.geometry("1100x740")
         self.minsize(760, 520)
+        self._set_icon()
         self.q: queue.Queue = queue.Queue()
         self.mode = tk.StringVar(value="adb")
         self.devmap: dict[str, str] = {}
@@ -190,6 +191,15 @@ class App(BaseTk):
     def on_close(self):
         self.stop_log()
         self.destroy()
+
+    def _set_icon(self):
+        try:
+            icon_path = Path(__file__).with_name("icon.png")
+            if icon_path.exists():
+                img = tk.PhotoImage(file=icon_path)
+                self.iconphoto(True, img)
+        except Exception:
+            pass
 
     def style_ui(self):
         import tkinter.font as tkfont
