@@ -13,7 +13,7 @@ Done in the last session:
    - the venv-based launcher, now at `scripts/run.sh` (it errors with "run install.sh" if `.venv` is missing; that is intentional).
 3. **`gui.py` split** (it was ~1,100 lines). See "Layout" below.
 4. **Tests** (60, all passing, no display or phone needed).
-5. **Packaging**: new `install.sh` flags, `--install-desktop` / `--uninstall-desktop` CLI, pipx documented, udev notes.
+5. **Packaging**: new `install.sh` flags, `--install-desktop` / `--uninstall-desktop` CLI, udev notes.
 6. **Startup checks**: friendly error if Tk or tkinterdnd2 is missing, in-app warning if adb/fastboot is not on `PATH`, `tadpole --check`.
 
 ## Verification gaps (important)

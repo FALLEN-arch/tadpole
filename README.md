@@ -47,14 +47,6 @@ The installer installs system packages (Python, Tkinter, adb and fastboot), crea
 
 Without root or sudo the installer skips the system packages on its own instead of stopping.
 
-### With pipx
-
-```bash
-pipx install .
-tadpole --install-desktop   # optional: add the menu entry and icon
-```
-
-You still need Tkinter (`python3-tk`), `adb` and `fastboot` from your distribution. Remove the menu entry with `tadpole --uninstall-desktop`.
 
 ## Usage
 
