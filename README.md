@@ -60,21 +60,6 @@ python3 -m venv --system-site-packages .venv
 ./scripts/run.sh
 ```
 
-### Termux / proot
-
-Install the required Python, Tkinter, venv and Android platform-tools packages for your distribution, then run `./install.sh`. Start Termux:X11 first and point the app at it:
-
-```bash
-export DISPLAY=:0
-./scripts/run.sh
-```
-
-Android blocks USB access from proot, so on a phone use wireless debugging (adb only):
-
-```bash
-adb connect 127.0.0.1:5555
-```
-
 ## Configuration
 
 Presets and the theme choice are stored in `~/.tadpole/`. An existing `~/.adb-studio/` folder from the old name is still picked up automatically.
