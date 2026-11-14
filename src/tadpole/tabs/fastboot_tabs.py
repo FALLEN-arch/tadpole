@@ -138,7 +138,13 @@ class FastbootTabs:
         def refresh():
             def done(v):
                 names = sorted({re.sub(r"_[ab]$", "", p["name"]) for p in v["partitions"]})
-                cb["values"] = names or ["boot", "init_boot", "vendor_boot", "dtbo", "vbmeta", "recovery", "system", "vendor", "userdata"]
+                # Access cb via self.preset's widget to avoid stale closure reference
+                for child in f.winfo_children():
+                    if isinstance(child, ttk.Frame):
+                        for widget in child.winfo_children():
+                            if isinstance(widget, ttk.Combobox) and widget.cget("textvariable") == str(self.preset):
+                                widget["values"] = names or ["boot", "init_boot", "vendor_boot", "dtbo", "vbmeta", "recovery", "system", "vendor", "userdata"]
+                                break
             self.load_vars(done)
         return refresh
 

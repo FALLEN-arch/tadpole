@@ -138,6 +138,9 @@ class App(BaseTk, AdbTabs, FastbootTabs):
             except Exception as exc:  # noqa: BLE001
                 # A bad callback (e.g. a corrupt screenshot) must not stop the
                 # pump, or the whole UI would silently freeze.
+                # Log to stderr as well so UI bugs surface during development.
+                import sys
+                print(f"pump callback error: {type(exc).__name__}: {exc}", file=sys.stderr)
                 try:
                     self.log("error", f"{type(exc).__name__}: {exc}", "err")
                 except Exception:  # noqa: BLE001
@@ -359,15 +362,15 @@ class App(BaseTk, AdbTabs, FastbootTabs):
         self.poll_now()
 
     def enable_dnd(self):
-        def reg(w):
+        # Only register the toplevel window and the body frame for DnD.
+        # Walking the entire widget tree recursively is expensive and unnecessary;
+        # TkinterDnD events bubble up from children.
+        for w in (self, self.body):
             try:
                 w.drop_target_register(DND_FILES)
                 w.dnd_bind("<<Drop>>", self.on_drop)
             except Exception:  # noqa: BLE001
                 pass
-            for c in w.winfo_children():
-                reg(c)
-        reg(self)
 
     def on_drop(self, e):
         files = list(self.tk.splitlist(e.data))
@@ -409,10 +412,11 @@ class App(BaseTk, AdbTabs, FastbootTabs):
     def hist_nav(self, d):
         if not self.hist:
             return "break"
-        self.hi = max(0, min(len(self.hist), self.hi + d))
+        # hi points to the *next* entry to show; valid range is 0..len(hist)-1
+        # when hi == len(hist), we're at the "new command" position (empty entry)
+        self.hi = max(0, min(len(self.hist) - 1, self.hi + d))
         self.cmd.delete(0, "end")
-        if self.hi < len(self.hist):
-            self.cmd.insert(0, self.hist[self.hi])
+        self.cmd.insert(0, self.hist[self.hi])
         return "break"
 
     def run_cmd(self, _e):

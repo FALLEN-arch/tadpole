@@ -117,6 +117,9 @@ def run_stream(serial, args, on_line, timeout: float = 1800) -> str:
         if proc.poll() is None:
             proc.kill()
             proc.wait()
+    # If the timer fired, we killed the process due to timeout.
+    # Check this *before* checking returncode, because a killed process
+    # may return a non-zero code (e.g., -9 from SIGKILL).
     if timed_out.is_set():
         raise FastbootError("fastboot timed out")
     out = "\n".join(lines).strip()

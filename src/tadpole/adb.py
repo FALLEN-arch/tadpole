@@ -28,7 +28,7 @@ def _argv(serial: str | None, args: list[str]) -> list[str]:
     argv.extend(args)
     return argv
 
-def _fail(proc: subprocess.CompletedProcess, text_stdout: bool = True) -> AdbError:
+def _fail(proc: subprocess.CompletedProcess, argv: list[str] | None = None, text_stdout: bool = True) -> AdbError:
     """Build an AdbError from a failed process.
 
     Falls back to stdout when stderr is empty (e.g. `adb shell grep` with no
@@ -38,24 +38,23 @@ def _fail(proc: subprocess.CompletedProcess, text_stdout: bool = True) -> AdbErr
     msg = proc.stderr.decode("utf-8", "replace").strip()
     if not msg and text_stdout:
         msg = proc.stdout.decode("utf-8", "replace").strip()
-    return AdbError(msg or f"adb exited with code {proc.returncode}")
+    cmd = " ".join(argv) if argv else "adb"
+    return AdbError(f"{cmd}: {msg}" if msg else f"{cmd}: exited with code {proc.returncode}")
 
 def run(serial: str | None, args: list[str], timeout: float = 60) -> str:
     """Run adb and return stdout as text. Raises AdbError on non-zero exit."""
-    proc = subprocess.run(
-        _argv(serial, args), capture_output=True, timeout=timeout
-    )
+    argv = _argv(serial, args)
+    proc = subprocess.run(argv, capture_output=True, timeout=timeout)
     if proc.returncode != 0:
-        raise _fail(proc)
+        raise _fail(proc, argv)
     return proc.stdout.decode("utf-8", "replace")
 
 def run_bytes(serial: str | None, args: list[str], timeout: float = 60) -> bytes:
     """Run adb and return raw stdout bytes (for screenshots and downloads)."""
-    proc = subprocess.run(
-        _argv(serial, args), capture_output=True, timeout=timeout
-    )
+    argv = _argv(serial, args)
+    proc = subprocess.run(argv, capture_output=True, timeout=timeout)
     if proc.returncode != 0:
-        raise _fail(proc, text_stdout=False)
+        raise _fail(proc, argv, text_stdout=False)
     return proc.stdout
 
 def stream(serial: str | None, args: list[str]):
@@ -71,11 +70,15 @@ def stream(serial: str | None, args: list[str]):
         for raw in proc.stdout:
             yield raw.decode("utf-8", "replace").rstrip("\r\n")
     finally:
+        # Ensure process is killed even if caller breaks out of iteration
         proc.terminate()
         try:
             proc.wait(timeout=3)
         except subprocess.TimeoutExpired:
             proc.kill()
+        except ProcessLookupError:
+            # Process already exited
+            pass
 
 def devices() -> list[dict]:
     out = run(None, ["devices", "-l"])
@@ -197,5 +200,7 @@ def snapshot(serial: str) -> tuple[dict, dict, str]:
         if not info["model"] and not bat["level"]:
             raise AdbError("empty snapshot")
         return info, bat, (m.group(1) if m else "")
-    except Exception:  # noqa: BLE001
+    except (AdbError, ValueError, IndexError):
+        # Only catch expected failures; let programming errors (regex bugs,
+        # key errors, etc.) surface so they don't get silently masked
         return device_info(serial), battery(serial), screen_size(serial)
