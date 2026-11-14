@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-cd "$(dirname "$0")/.." || exit 1
-if ! python3 -c "import tkinterdnd2" >/dev/null 2>&1; then
-    echo "Missing dependency: tkinterdnd2 (needed for drag and drop)." >&2
-    echo "Install it with: pip install -r requirements.txt" >&2
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV_PYTHON="$ROOT/.venv/bin/python"
+
+if [[ ! -x "$VENV_PYTHON" ]]; then
+    echo "Tadpole's virtual environment is missing. Run: $ROOT/install.sh" >&2
     exit 1
 fi
-PYTHONPATH=src exec python3 -m tadpole "$@"
+
+cd "$ROOT"
+PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" exec "$VENV_PYTHON" -m tadpole "$@"

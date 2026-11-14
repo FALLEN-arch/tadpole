@@ -35,7 +35,8 @@ def run(serial: str | None, args: list[str], timeout: float = 120) -> str:
 
 
 def version() -> str:
-    return run(None, ["--version"]).splitlines()[0]
+    output = run(None, ["--version"]).strip()
+    return output.splitlines()[0] if output else "Fastboot version unavailable"
 
 
 def devices() -> list[dict]:
