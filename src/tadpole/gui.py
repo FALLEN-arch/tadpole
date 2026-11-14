@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Tadpole - native desktop GUI for adb and fastboot (Tkinter + sv-ttk, Pillow, tkinterdnd2)."""
+"""Tadpole - native desktop GUI for adb and fastboot (Tkinter + tkinterdnd2)."""
 from __future__ import annotations
 
+import base64
 import collections
-import io
 import json
 import re
 import shlex
@@ -17,20 +17,23 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from . import adb
 from . import fastboot as fb
 
-import sv_ttk
-from PIL import Image, ImageTk
 from tkinterdnd2 import DND_FILES, TkinterDnD  # required: drag and drop is a core feature
 
 BaseTk = TkinterDnD.Tk
 
-# Dark palette (matches the Sun Valley dark theme from sv-ttk)
-BG, PANEL, PANEL2, LINE = "#1c1c1c", "#232323", "#2b2b2b", "#3a3a3a"
-TX, MUT = "#fafafa", "#a0a0a0"
-ACC, ACCS = "#57c8ff", "#1f3a47"
-OK, WARN, ERR = "#6ccb5f", "#fce100", "#ff99a4"
-TERM = "#161616"
-ON_ACC = "#1c1c1c"  # text colour on top of the accent colour
+PALETTES = {
+    "dark": dict(BG="#0b0d12", PANEL="#11141b", PANEL2="#1a1f2a", LINE="#2a303d", TX="#e6e9f0", MUT="#8a93a6",
+                 ACC="#5b8cff", ACCS="#1c2740", OK="#3ddc97", WARN="#f5b84a", ERR="#ff5d6c", TERM="#080a0e"),
+    "light": dict(BG="#f4f6fa", PANEL="#ffffff", PANEL2="#eceff5", LINE="#d5dae5", TX="#171b26", MUT="#5d667a",
+                  ACC="#3b6df0", ACCS="#e3ebff", OK="#12a36a", WARN="#b7791f", ERR="#d93a4a", TERM="#f0f2f7"),
+}
 
+
+def set_palette(name):
+    globals().update(PALETTES[name])
+
+
+set_palette("dark")
 CONF = Path.home() / ".tadpole"
 if not CONF.exists() and (Path.home() / ".adb-studio").is_dir():
     CONF = Path.home() / ".adb-studio"  # settings from before the rename
@@ -132,7 +135,7 @@ class SideNav(ttk.Frame):
 
     def add(self, frame, text):
         i = len(self.tabs)
-        b = ttk.Button(self.side, text=text, style="Nav.Toolbutton", width=18, command=lambda: self.select(i))
+        b = ttk.Button(self.side, text=text, style="Nav.TButton", width=18, command=lambda: self.select(i))
         b.pack(fill="x", pady=1)
         self.tabs.append((frame, b))
         if self.cur is None:
@@ -144,11 +147,11 @@ class SideNav(ttk.Frame):
         for n, (fr, b) in enumerate(self.tabs):
             if n == i:
                 fr.pack(in_=self.stage, fill="both", expand=True)
-                b.state(["selected"])
+                b.configure(style="NavOn.TButton")
                 self.head.configure(text=b.cget("text").split(None, 1)[-1])
             else:
                 fr.pack_forget()
-                b.state(["!selected"])
+                b.configure(style="Nav.TButton")
         self.cur = i
         if notify and self.on_change:
             self.on_change()
@@ -173,11 +176,12 @@ class App(BaseTk):
         self.logproc = None
         self.logbuf: collections.deque = collections.deque(maxlen=20000)
         self.shot = None
+        self.theme = load_json("config.json", {}).get("theme", "dark")
+        set_palette(self.theme if self.theme in PALETTES else "dark")
         self.presets: dict = load_json("presets.json", {})
         self.flashpath = None
         self.style_ui()
         self.build()
-        self.dark_combos(self)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(50, self.pump)
         self.poll()
@@ -191,37 +195,53 @@ class App(BaseTk):
         import tkinter.font as tkfont
         for n in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
             tkfont.nametofont(n).configure(size=11)
-        self.configure(bg=BG)
-        sv_ttk.set_theme("dark")  # buttons, entries, combos, tables, scrollbars: all themed by sv-ttk
         s = ttk.Style(self)
-        bold = ("TkDefaultFont", 11, "bold")
-        s.configure("Nav.Toolbutton", anchor="w", padding=(14, 9))
-        s.configure("Side.TFrame", background=PANEL)
+        s.theme_use("clam")
+        self.configure(bg=BG)
+        s.configure(".", background=BG, foreground=TX, fieldbackground=PANEL2, bordercolor=LINE,
+                    lightcolor=PANEL, darkcolor=PANEL, troughcolor=PANEL2, focuscolor=BG)
+        s.configure("TNotebook", background=BG, borderwidth=0)
+        s.configure("TNotebook.Tab", padding=(16, 8), background=PANEL, foreground=MUT, borderwidth=0)
+        s.map("TNotebook.Tab", background=[("selected", PANEL2)], foreground=[("selected", TX)])
+        s.configure("TButton", padding=(12, 6), background=PANEL2, foreground=TX, borderwidth=1)
+        s.map("TButton", background=[("active", LINE)])
+        s.configure("Accent.TButton", background=ACC, foreground="#ffffff")
+        s.map("Accent.TButton", background=[("active", "#7aa2ff")])
+        s.configure("Danger.TButton", foreground=ERR)
+        s.configure("Mode.TRadiobutton", padding=(14, 6), background=PANEL2, foreground=MUT)
+        s.configure("Toolbutton", padding=(14, 6))
+        s.configure("TCheckbutton", background=BG, foreground=TX)
+        s.configure("Treeview", background=PANEL, fieldbackground=PANEL, foreground=TX, rowheight=26, borderwidth=0)
+        s.configure("Treeview.Heading", background=PANEL2, foreground=MUT, relief="flat", padding=6)
+        s.map("Treeview", background=[("selected", ACC)], foreground=[("selected", "#fff")])
+        s.configure("Card.TFrame", background=PANEL, relief="solid", borderwidth=1)
         s.configure("Top.TFrame", background=PANEL)
         s.configure("Top.TLabel", background=PANEL, foreground=TX, font=("TkDefaultFont", 12, "bold"))
-        s.configure("Pill.TLabel", background=PANEL, foreground=MUT, font=bold)
-        s.configure("Tile.TFrame", background=BG, relief="solid", borderwidth=1, bordercolor=LINE)
-        s.configure("Tile.TLabel", background=BG, foreground=MUT)
-        s.configure("Big.TLabel", background=BG, foreground=TX, font=("TkDefaultFont", 13, "bold"))
-        s.configure("BigBg.TLabel", foreground=TX, font=("TkDefaultFont", 13, "bold"))
-        s.configure("Head.TLabel", foreground=TX, font=("TkDefaultFont", 17, "bold"))
+        s.configure("Card.TLabel", background=PANEL, foreground=MUT)
+        s.configure("Big.TLabel", background=PANEL, foreground=TX, font=("TkDefaultFont", 13, "bold"))
+        s.configure("BigBg.TLabel", background=BG, foreground=TX, font=("TkDefaultFont", 13, "bold"))
         s.configure("Mut.TLabel", foreground=MUT)
-        s.configure("Danger.TButton", foreground=ERR)
-        s.map("Danger.TButton", foreground=[("disabled", MUT), ("!disabled", ERR)])
-
-    def dark_combos(self, w):
-        """Colour every dropdown list directly; the option database alone leaves white patches."""
-        if isinstance(w, ttk.Combobox):
-            try:
-                pop = str(self.tk.call("ttk::combobox::PopdownWindow", str(w)))
-                self.tk.call(pop + ".f.l", "configure", "-background", PANEL2, "-foreground", TX,
-                             "-selectbackground", ACC, "-selectforeground", ON_ACC,
-                             "-highlightthickness", 0, "-borderwidth", 0, "-activestyle", "none")
-                self.tk.call(pop, "configure", "-background", LINE)
-            except tk.TclError:
-                pass
-        for c in w.winfo_children():
-            self.dark_combos(c)
+        s.configure("Side.TFrame", background=PANEL)
+        s.configure("Nav.TButton", background=PANEL, foreground=MUT, anchor="w", padding=(14, 11), borderwidth=0, relief="flat")
+        s.map("Nav.TButton", background=[("active", PANEL2)], foreground=[("active", TX)])
+        s.configure("NavOn.TButton", background=ACCS, foreground=ACC, anchor="w", padding=(14, 11), borderwidth=0, relief="flat")
+        s.map("NavOn.TButton", background=[("active", ACCS)], foreground=[("active", ACC)])
+        s.configure("Head.TLabel", font=("TkDefaultFont", 17, "bold"), foreground=TX)
+        s.configure("Pill.TLabel", background=PANEL, foreground=MUT, font=("TkDefaultFont", 11, "bold"))
+        s.configure("TCombobox", arrowcolor=TX, background=PANEL2, foreground=TX, fieldbackground=PANEL2,
+                    selectbackground=PANEL2, selectforeground=TX, bordercolor=LINE)
+        s.map("TCombobox", fieldbackground=[("readonly", PANEL2), ("disabled", PANEL)],
+              foreground=[("readonly", TX), ("disabled", MUT)], background=[("readonly", PANEL2), ("active", LINE)],
+              selectbackground=[("readonly", PANEL2)], selectforeground=[("readonly", TX)])
+        s.configure("TEntry", fieldbackground=PANEL2, foreground=TX, insertcolor=TX, bordercolor=LINE)
+        s.configure("TScrollbar", background=PANEL2, troughcolor=PANEL, arrowcolor=MUT, bordercolor=PANEL, lightcolor=PANEL2, darkcolor=PANEL2)
+        s.map("TScrollbar", background=[("active", LINE)])
+        s.configure("TProgressbar", background=ACC, troughcolor=PANEL2, bordercolor=LINE)
+        s.configure("TPanedwindow", background=BG)
+        s.configure("Sash", background=LINE)
+        self.option_add("*TCombobox*Listbox.background", PANEL2)
+        self.option_add("*TCombobox*Listbox.foreground", TX)
+        self.option_add("*TCombobox*Listbox.selectBackground", ACC)
 
     def pump(self):
         while True:
@@ -304,6 +324,8 @@ class App(BaseTk):
         ttk.Button(top, text="Refresh", command=self.poll_now).pack(side="left")
         self.pill = ttk.Label(top, text="●  no device", style="Pill.TLabel")
         self.pill.pack(side="left", padx=14)
+        self.themebtn = ttk.Button(top, text="☀ Light" if self.theme == "dark" else "☾ Dark", command=self.toggle_theme)
+        self.themebtn.pack(side="right", padx=6)
         self.wifi = ttk.Frame(top, style="Top.TFrame")
         self.wifi.pack(side="right")
         ttk.Button(self.wifi, text="Connect…", command=self.connect).pack(side="left", padx=3)
@@ -436,6 +458,24 @@ class App(BaseTk):
             return adb.run(None, ["start-server"])
         self.bg(work, lambda r: self.poll_now(), "adb kill-server && adb start-server")
 
+    def toggle_theme(self):
+        self.apply_theme("light" if self.theme == "dark" else "dark")
+
+    def apply_theme(self, name):
+        self.theme = name
+        set_palette(name)
+        self.style_ui()
+        for t in TEXTS:
+            try:
+                t.configure(bg=TERM, fg=MUT, insertbackground=TX, highlightbackground=LINE)
+                tag_colors(t)
+            except tk.TclError:
+                pass
+        self.themebtn.configure(text="☀ Light" if name == "dark" else "☾ Dark")
+        save_json("config.json", {"theme": name})
+        self.devsig = None
+        self.poll_now()
+
     def enable_dnd(self):
         def reg(w):
             try:
@@ -521,10 +561,10 @@ class App(BaseTk):
         g = ttk.Frame(f)
         g.pack(fill="x")
         for i, (k, v) in enumerate(vals.items()):
-            c = ttk.Frame(g, style="Tile.TFrame", padding=12)
+            c = ttk.Frame(g, style="Card.TFrame", padding=12)
             c.grid(row=i // 4, column=i % 4, sticky="nsew", padx=5, pady=5)
             g.columnconfigure(i % 4, weight=1)
-            ttk.Label(c, text=k, style="Tile.TLabel").pack(anchor="w")
+            ttk.Label(c, text=k, style="Card.TLabel").pack(anchor="w")
             ttk.Label(c, textvariable=v, style="Big.TLabel").pack(anchor="w")
         row = ttk.Frame(f)
         row.pack(fill="x", pady=14)
@@ -534,7 +574,7 @@ class App(BaseTk):
         row2 = ttk.Frame(f)
         row2.pack(fill="x")
         ttk.Button(row2, text="Restart adbd as root", command=lambda: self.adb(["root"])).pack(side="left", padx=4)
-        ttk.Button(row2, text="Sideload ZIP…", command=lambda: (lambda p: p and self.adb(["sideload", p], None, 1800))(filedialog.askopenfilename(filetypes=[("ZIP", "*.zip")]))).pack(side="left", padx=4)
+        ttk.Button(row2, text="Sideload ZIP", command=lambda: (lambda p: p and self.adb(["sideload", p], None, 1800))(filedialog.askopenfilename(filetypes=[("ZIP", "*.zip")]))).pack(side="left", padx=4)
 
         def refresh():
             s = self.ser
@@ -813,18 +853,10 @@ class App(BaseTk):
 
             def done(data):
                 st["d"] = data
-                try:
-                    img = Image.open(io.BytesIO(data)).convert("RGB")
-                except Exception:  # noqa: BLE001
-                    return
-                avail_h = max(200, f.winfo_height() - 150)
-                avail_w = max(200, f.winfo_width() - 24)
-                scale = min(1.0, avail_h / img.height, avail_w / img.width)
-                if scale < 1.0:
-                    size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
-                    img = img.resize(size, getattr(Image, "Resampling", Image).LANCZOS)
-                st["k"] = 1 / scale if scale < 1.0 else 1.0
-                self.shot = ImageTk.PhotoImage(img)
+                img = tk.PhotoImage(data=base64.b64encode(data))
+                k = max(1, -(-img.height() // max(200, f.winfo_height() - 150)))
+                st["k"] = k
+                self.shot = img.subsample(k) if k > 1 else img
                 lab.configure(image=self.shot, text="")
             self.bg(work, done)
 
@@ -1051,7 +1083,7 @@ def main() -> None:
     try:
         App().mainloop()
     except tk.TclError as exc:
-        raise SystemExit(f"Cannot open a window: {exc}\nMake sure a graphical session is running (is $DISPLAY set?).")
+        raise SystemExit(f"Cannot open a window: {exc}\nOn Termux/proot start Termux:X11 first and run: export DISPLAY=:0")
 
 
 if __name__ == "__main__":

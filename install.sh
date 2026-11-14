@@ -1,79 +1,63 @@
 #!/usr/bin/env bash
-# Tadpole installer: system packages + Python venv + Tadpole + desktop integration
+# Install system tools and create a project-local Python virtual environment.
 set -euo pipefail
-cd "$(dirname "$0")"
 
-VENV_DIR="$HOME/.local/share/tadpole/venv"
-BIN_DIR="$HOME/.local/bin"
-DESKTOP_DIR="$HOME/.local/share/applications"
-ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
-METAINFO_DIR="$HOME/.local/share/metainfo"
-MAN_DIR="$HOME/.local/share/man/man1"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
-if [ "$(id -u)" -eq 0 ]; then
-    SUDO=""
+if [[ "$(id -u)" -eq 0 ]]; then
+    SUDO=()
 elif command -v sudo >/dev/null 2>&1; then
-    SUDO="sudo"
+    SUDO=(sudo)
 else
     echo "Run as root or install sudo first." >&2
     exit 1
 fi
 
-echo "==> Installing system packages"
-if command -v apt-get >/dev/null 2>&1; then
-    $SUDO apt-get update
-    $SUDO apt-get install -y python3 python3-tk python3-venv adb fastboot
-elif command -v dnf >/dev/null 2>&1; then
-    $SUDO dnf install -y python3 python3-tkinter python3-virtualenv android-tools
-elif command -v pacman >/dev/null 2>&1; then
-    $SUDO pacman -S --needed --noconfirm python tk python-virtualenv android-tools
-else
-    echo "Unsupported package manager. Install python3, tkinter, venv, adb and fastboot manually," >&2
-    echo "then run: python3 -m venv ~/.local/share/tadpole/venv && ~/.local/share/tadpole/venv/bin/pip install ." >&2
+install_system_packages() {
+    echo "==> Installing system packages"
+    if command -v apt-get >/dev/null 2>&1; then
+        "${SUDO[@]}" apt-get update
+        "${SUDO[@]}" apt-get install -y python3 python3-tk python3-venv adb fastboot
+    elif command -v dnf >/dev/null 2>&1; then
+        "${SUDO[@]}" dnf install -y python3 python3-tkinter android-tools
+    elif command -v pacman >/dev/null 2>&1; then
+        "${SUDO[@]}" pacman -S --needed --noconfirm python tk android-tools
+    else
+        echo "Unsupported package manager. Install Python 3.10+, Tkinter, venv support, adb and fastboot manually." >&2
+        exit 1
+    fi
+}
+
+install_system_packages
+
+PYTHON="$(command -v python3 || true)"
+if [[ -z "$PYTHON" ]]; then
+    echo "python3 was not found after installing system packages." >&2
     exit 1
 fi
 
-echo "==> Creating virtual environment"
-python3 -m venv "$VENV_DIR"
+if ! "$PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+    echo "Tadpole requires Python 3.10 or newer." >&2
+    exit 1
+fi
 
-echo "==> Installing Tadpole and dependencies"
-"$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install .
+echo "==> Creating local virtual environment (.venv)"
+if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
+    "$PYTHON" -m venv --system-site-packages "$ROOT/.venv"
+fi
 
-echo "==> Creating launcher script"
-mkdir -p "$BIN_DIR"
-rm -f "$BIN_DIR/tadpole"
-cat > "$BIN_DIR/tadpole" << 'LAUNCHER'
-#!/usr/bin/env bash
-exec "$HOME/.local/share/tadpole/venv/bin/python" -m tadpole "$@"
-LAUNCHER
-chmod +x "$BIN_DIR/tadpole"
+# Refresh pip inside the project environment and install the app plus its
+# declared dependencies. System-site-packages keeps distro Tkinter available.
+echo "==> Installing Tadpole and Python dependencies"
+"$ROOT/.venv/bin/python" -m pip install --upgrade pip
+"$ROOT/.venv/bin/python" -m pip install -e .
 
-echo "==> Installing desktop integration files"
-mkdir -p "$DESKTOP_DIR" "$ICON_DIR" "$METAINFO_DIR" "$MAN_DIR"
-
-# Desktop file
-cp data/applications/com.fallen-arch.Tadpole.desktop "$DESKTOP_DIR/"
-
-# Icon
-cp data/icons/hicolor/scalable/apps/com.fallen-arch.Tadpole.svg "$ICON_DIR/"
-
-# AppStream metainfo
-cp data/metainfo/com.fallen-arch.Tadpole.metainfo.xml "$METAINFO_DIR/"
-
-# Man page
-cp man/tadpole.1 "$MAN_DIR/"
-
-# Update caches
-command -v update-desktop-database >/dev/null && update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
-command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -q "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-command -v mandb >/dev/null && mandb -q "$MAN_DIR" 2>/dev/null || true
+chmod +x "$ROOT/install.sh" "$ROOT/scripts/run.sh"
 
 echo
-echo "Done. Run:"
-echo "    tadpole"
-echo
-echo "If 'tadpole' isn't found, open a new terminal or run:"
-echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
-echo
-echo "The app will also appear in your application menu under Development/System."
+echo "Installation complete. Start Tadpole with:"
+echo "    $ROOT/scripts/run.sh"
+echo "Or activate the environment and run the command:"
+echo "    source .venv/bin/activate && tadpole"
+echo "For Termux:X11, start the X server first and set DISPLAY=:0."

@@ -1,45 +1,24 @@
 [build-system]
-requires = ["setuptools>=61", "meson-python>=0.16"]
-build-backend = "mesonpy"
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "tadpole"
 version = "1.0.0"
-description = "Native desktop GUI for adb and fastboot (GTK4 + libadwaita)"
+description = "Native desktop GUI for adb and fastboot (Tkinter with drag and drop)"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "pygobject>=3.48",
-    "libadwaita>=1.5",
-]
+dependencies = ["tkinterdnd2>=0.3.0"]
 license = { text = "MIT" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Operating System :: POSIX :: Linux",
-    "Environment :: X11 Applications :: GTK",
 ]
 
+
 [project.gui-scripts]
-tadpole = "tadpole.application:main"
+tadpole = "tadpole.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-"tadpole" = [
-    "data/icons/hicolor/scalable/apps/*.svg",
-    "data/applications/*.desktop",
-    "data/metainfo/*.xml",
-    "ui/*.ui",
-]
-
-[tool.setuptools.data-files]
-"share/icons/hicolor/scalable/apps" = ["data/icons/hicolor/scalable/apps/com.fallen-arch.Tadpole.svg"]
-"share/applications" = ["data/applications/com.fallen-arch.Tadpole.desktop"]
-"share/metainfo" = ["data/metainfo/com.fallen-arch.Tadpole.metainfo.xml"]
-"share/man/man1" = ["man/tadpole.1"]
-
-[project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-gtk>=0.1"]
-flatpak = ["flatpak-builder-tools"]

@@ -3,7 +3,7 @@
 A native Linux desktop GUI for **adb** and **fastboot**. Built on Tkinter: no web server, no browser, no Electron.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Platform: Linux](https://img.shields.io/badge/platform-Linux-lightgrey)
 
 ## Features
@@ -25,8 +25,8 @@ A native Linux desktop GUI for **adb** and **fastboot**. Built on Tkinter: no we
 
 **Everywhere**
 - Drag and drop: drop `.apk` files to install (ADB mode) or an `.img` to prepare a flash (Fastboot mode)
-- Terminal dock that runs any adb or fastboot command, with history (Up / Down) and Clear
-- Dark theme (Sun Valley, via sv-ttk)
+- Terminal dock that runs adb or fastboot commands, with history (Up / Down) and Clear
+- Light / dark theme, remembered between runs
 - Destructive actions need a typed confirmation (`FLASH`, `ERASE`, `UNLOCK`, `LOCK`, `WIPE`)
 
 ## Install
@@ -37,100 +37,62 @@ cd tadpole
 ./install.sh
 ```
 
-The installer sets up everything in one go: Python, Tkinter, `adb`, `fastboot`, creates a virtual environment at `~/.local/share/tadpole/venv`, installs Tadpole and its Python dependencies (`tkinterdnd2`, `sv-ttk`, `Pillow`), and adds a `tadpole` launcher to `~/.local/bin`. It supports Debian / Ubuntu, Fedora and Arch.
-
-<details>
-<summary>Manual install</summary>
-
-```bash
-sudo apt install python3 python3-tk python3-venv adb fastboot
-python3 -m venv ~/.local/share/tadpole/venv
-~/.local/share/tadpole/venv/bin/pip install .
-```
-
-Then add `~/.local/bin` to your PATH (the installer creates a launcher script there).
-
-</details>
+The installer installs system packages (Python, Tkinter, adb and fastboot), creates a project-local `.venv`, and installs Tadpole's Python dependencies inside it. It supports Debian / Ubuntu, Fedora and Arch package managers. The virtual environment uses system site packages so it can access the distribution's Tkinter module.
 
 ## Usage
 
 ```bash
+./scripts/run.sh
+```
+
+Alternatively, activate the environment and use the installed command:
+
+```bash
+source .venv/bin/activate
 tadpole
 ```
 
-If `tadpole` isn't found, open a new terminal or run `export PATH="$HOME/.local/bin:$PATH"`.
-
-You can also run straight from a checkout without installing:
+You can also run from a checkout manually:
 
 ```bash
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -e .
 ./scripts/run.sh
 ```
 
-This creates a local `.venv` in the project directory, installs dependencies, and runs Tadpole.
+### Termux / proot
 
-## Development
+Install the required Python, Tkinter, venv and Android platform-tools packages for your distribution, then run `./install.sh`. Start Termux:X11 first and point the app at it:
 
 ```bash
-# Run tests
-python3 -m pytest tests/ -v
-
-# Run from source (creates .venv automatically)
+export DISPLAY=:0
 ./scripts/run.sh
+```
+
+Android blocks USB access from proot, so on a phone use wireless debugging (adb only):
+
+```bash
+adb connect 127.0.0.1:5555
 ```
 
 ## Configuration
 
-Saved flash presets are stored in `~/.tadpole/`. An existing `~/.adb-studio/` folder from the
-old name is still picked up automatically.
+Presets and the theme choice are stored in `~/.tadpole/`. An existing `~/.adb-studio/` folder from the old name is still picked up automatically.
 
-## Project Layout
+## Project layout
 
 ```
-install.sh            one-step installer (system deps + venv)
-requirements.txt      Python dependencies (tkinterdnd2, sv-ttk, Pillow)
-scripts/run.sh        run from a checkout (creates local .venv)
-tests/                unit tests
+install.sh         one-step installer; creates .venv
+requirements.txt   Python dependencies (tkinterdnd2, for drag and drop)
+scripts/run.sh     run using the project virtual environment
 src/tadpole/
-  __init__.py         package exports (models, services, errors)
-  __main__.py         entry point
-  models/             data models (dataclasses, enums)
-    device.py         Device, DeviceState, DeviceInfo, BatteryInfo
-    app.py            AppInfo, AppState
-    file.py           FileInfo, FileType
-    flash.py          FlashOptions, FlashPreset
-    partition.py      Partition, PartitionType
-    fastboot.py       FastbootVariables
-  services/           business logic (stateless, serial-targeted)
-    adb_service.py    AdbService - all ADB operations
-    fastboot_service.py  FastbootService - all fastboot operations
-    preset_service.py    PresetService - flash presets persistence
-    config_service.py    ConfigService - JSON config management
-  ui/                 UI layer (Tkinter)
-    widgets.py        reusable widgets (SideNav, Toolbar, StatusPill, etc.)
-    tabs.py           12 tab classes (6 ADB + 6 Fastboot)
-    main_window.py    MainWindow - orchestrates everything
-  utils/              shared utilities
-    threading.py      background task queue with UI callbacks
-    formatting.py     human_size, format_duration
-    validation.py     input validation regexes
-    theme.py          dark theme constants & styling helpers
+  gui.py           the Tkinter app
+  adb.py           safe wrapper around the adb binary
+  fastboot.py      safe wrapper around the fastboot binary
+tests/             smoke tests
 ```
 
-The wrappers build argument lists and never use a shell, so serials, package names and paths can't be
-interpreted as shell syntax.
-
-## Architecture
-
-Tadpole follows a clean **modular architecture**:
-
-| Layer | Responsibility |
-|-------|----------------|
-| **Models** | Frozen dataclasses + enums for type-safe data |
-| **Services** | Stateless business logic (ADB, fastboot, presets, config) |
-| **UI** | Tkinter widgets, tabs, and main window orchestration |
-| **Utils** | Threading, formatting, validation, theming |
-
-All background operations run on a thread pool with results delivered to the UI thread via a queue, keeping the interface responsive.
+The wrappers build argument lists and never use a local shell for adb / fastboot execution. Remote shell arguments are explicitly quoted where paths are passed to Android's shell.
 
 ## License
 
